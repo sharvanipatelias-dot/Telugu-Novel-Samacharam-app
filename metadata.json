@@ -1,0 +1,6 @@
+{
+  "name": "Telugu Novel & Samacharam",
+  "description": "Telugu Novel & News app with reader mode, real-time thoughts, status feed, secure user profiles, AdMob ads, and Gemini AI-powered automated content moderation.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

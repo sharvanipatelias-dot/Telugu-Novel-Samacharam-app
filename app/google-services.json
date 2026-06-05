@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "24599218510",
+    "project_id": "telugu-novel-samacharam-eacc9",
+    "storage_bucket": "telugu-novel-samacharam-eacc9.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:24599218510:android:85be8a4de9acbbcca2f61f",
+        "android_client_info": {
+          "package_name": "com.aistudio.telugunovel.szqkwt"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA6XQ5XdfS8C4lFvrB8ocmZ6U-kHJZGX5A"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
