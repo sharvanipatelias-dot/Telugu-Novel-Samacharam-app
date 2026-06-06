@@ -197,6 +197,9 @@ fun AdminModerationQueueTab(viewModel: AppViewModel) {
     val newsList by viewModel.newsPosts.collectAsState()
     val novelsList by viewModel.novelPosts.collectAsState()
     val thoughtsList by viewModel.thoughtPosts.collectAsState()
+    val reportsList by viewModel.reports.collectAsState()
+
+    var selectedQueueIndex by remember { mutableStateOf(0) } // 0: Posts Review, 1: Reports Queue
 
     // Aggregate posts that are NOT Published yet (or flagged as Hiding / Review required)
     val reviewItems = remember(newsList, novelsList, thoughtsList) {
@@ -208,85 +211,178 @@ fun AdminModerationQueueTab(viewModel: AppViewModel) {
         list
     }
 
-    if (reviewItems.isEmpty()) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(Icons.Default.CheckCircle, contentDescription = "Clean queue", tint = Color(0xFF10B981), modifier = Modifier.size(64.dp))
-                Spacer(modifier = Modifier.height(12.dp))
-                Text("మోడరేషన్ క్యూ ఖాళీగా ఉంది!", color = Color(0xFF94A3B8), fontSize = 15.sp)
-                Text("All posts have been reviewed.", color = Color(0xFF64748B), fontSize = 12.sp)
-            }
+    Column(modifier = Modifier.fillMaxSize()) {
+        TabRow(
+            selectedTabIndex = selectedQueueIndex,
+            containerColor = Color(0xFF1E293B),
+            contentColor = Color(0xFFF59E0B)
+        ) {
+            Tab(
+                selected = selectedQueueIndex == 0,
+                onClick = { selectedQueueIndex = 0 },
+                text = { Text("పోస్టుల పరిశీలన (${reviewItems.size})", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = if (selectedQueueIndex == 0) Color(0xFFF59E0B) else Color(0xFF94A3B8)) }
+            )
+            val pendingReportsCount = reportsList.filter { it.status == "PENDING" }.size
+            Tab(
+                selected = selectedQueueIndex == 1,
+                onClick = { selectedQueueIndex = 1 },
+                text = { Text("రిపోర్టులు (${pendingReportsCount})", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = if (selectedQueueIndex == 1) Color(0xFFF59E0B) else Color(0xFF94A3B8)) }
+            )
         }
-    } else {
-        LazyColumn(modifier = Modifier.fillMaxSize().padding(12.dp)) {
-            items(reviewItems) { item ->
-                Card(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
-                    shape = RoundedCornerShape(10.dp)
-                ) {
-                    Column(modifier = Modifier.padding(14.dp)) {
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(4.dp))
-                                    .background(Color(0xFF334155))
-                                    .padding(horizontal = 6.dp, vertical = 2.dp)
-                            ) {
-                                Text(item.typeLabel, color = Color(0xFFF59E0B), fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                            }
-                            Text(
-                                "Safety Flag: " + (if (item.status == PostStatus.HIDDEN) "❌ BLOCKED" else "⚠️ PENDING"),
-                                color = if (item.status == PostStatus.HIDDEN) Color.Red else Color(0xFFF59E0B),
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
 
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        Text(item.title, fontWeight = FontWeight.Bold, color = Color.White, fontSize = 15.sp)
-                        Text(item.content, fontSize = 13.sp, color = Color(0xFFCBD5E1), maxLines = 4, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(vertical = 4.dp))
-                        Text("Author: ${item.authorName}", fontSize = 11.sp, color = Color(0xFF94A3B8))
-
-                        if (item.moderationNotes.isNotEmpty()) {
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text(
-                                "AI Moderation Note: ${item.moderationNotes}",
-                                fontSize = 12.sp,
-                                color = Color(0xFF38BDF8),
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
-
+        if (selectedQueueIndex == 0) {
+            if (reviewItems.isEmpty()) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.Default.CheckCircle, contentDescription = "Clean queue", tint = Color(0xFF10B981), modifier = Modifier.size(64.dp))
                         Spacer(modifier = Modifier.height(12.dp))
-                        Divider(color = Color(0xFF334155))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                            horizontalArrangement = Arrangement.SpaceEvenly
+                        Text("మోడరేషన్ క్యూ ఖాళీగా ఉంది!", color = Color(0xFF94A3B8), fontSize = 15.sp)
+                        Text("All posts have been reviewed.", color = Color(0xFF64748B), fontSize = 12.sp)
+                    }
+                }
+            } else {
+                LazyColumn(modifier = Modifier.fillMaxSize().padding(12.dp)) {
+                    items(reviewItems) { item ->
+                        Card(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+                            shape = RoundedCornerShape(10.dp)
                         ) {
-                            // Approve Button
-                            Button(
-                                onClick = { viewModel.approvePost(item.id, item.postType) },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
-                                modifier = Modifier.height(34.dp)
-                            ) {
-                                Text("APPROVE", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
-                            }
+                            Column(modifier = Modifier.padding(14.dp)) {
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(4.dp))
+                                            .background(Color(0xFF334155))
+                                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                                    ) {
+                                        Text(item.typeLabel, color = Color(0xFFF59E0B), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                    Text(
+                                        "Safety Flag: " + (if (item.status == PostStatus.HIDDEN) "❌ BLOCKED" else "⚠️ PENDING"),
+                                        color = if (item.status == PostStatus.HIDDEN) Color.Red else Color(0xFFF59E0B),
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
 
-                            // Reject Button
-                            Button(
-                                onClick = { viewModel.rejectPost(item.id, item.postType) },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5252)),
-                                modifier = Modifier.height(34.dp)
-                            ) {
-                                Text("REJECT", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
-                            }
+                                Spacer(modifier = Modifier.height(8.dp))
 
-                            // Delete Action
-                            IconButton(onClick = { viewModel.adminDeletePost(item.id, item.postType) }) {
-                                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color.LightGray)
+                                Text(item.title, fontWeight = FontWeight.Bold, color = Color.White, fontSize = 15.sp)
+                                Text(item.content, fontSize = 13.sp, color = Color(0xFFCBD5E1), maxLines = 4, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(vertical = 4.dp))
+                                Text("Author: ${item.authorName}", fontSize = 11.sp, color = Color(0xFF94A3B8))
+
+                                if (item.moderationNotes.isNotEmpty()) {
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Text(
+                                        "Notes: ${item.moderationNotes}",
+                                        fontSize = 12.sp,
+                                        color = Color(0xFF38BDF8),
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Divider(color = Color(0xFF334155))
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                                    horizontalArrangement = Arrangement.SpaceEvenly
+                                ) {
+                                    // Approve Button
+                                    Button(
+                                        onClick = { viewModel.approvePost(item.id, item.postType) },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                                        modifier = Modifier.height(34.dp)
+                                    ) {
+                                        Text("APPROVE", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                                    }
+
+                                    // Reject Button
+                                    Button(
+                                        onClick = { viewModel.rejectPost(item.id, item.postType) },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5252)),
+                                        modifier = Modifier.height(34.dp)
+                                    ) {
+                                        Text("REJECT", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                                    }
+
+                                    // Delete Action
+                                    IconButton(onClick = { viewModel.adminDeletePost(item.id, item.postType) }) {
+                                        Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color.LightGray)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            if (reportsList.isEmpty()) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.Default.Check, contentDescription = "No reports", tint = Color(0xFF10B981), modifier = Modifier.size(64.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text("ఎటువంటి రిపోర్టులు లేవు!", color = Color(0xFF94A3B8), fontSize = 15.sp)
+                    }
+                }
+            } else {
+                LazyColumn(modifier = Modifier.fillMaxSize().padding(12.dp)) {
+                    items(reportsList) { report ->
+                        Card(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(14.dp)) {
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(4.dp))
+                                            .background(Color(0xFFEF4444).copy(alpha = 0.2f))
+                                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                                    ) {
+                                        Text("TYPE: ${report.targetType}", color = Color(0xFFEF4444), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                    Text(
+                                        "Status: ${report.status}",
+                                        color = if (report.status == "PENDING") Color(0xFFF59E0B) else Color(0xFF10B981),
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                Text("ఫిర్యాదు కారణం: ${report.reason}", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 14.sp)
+                                Text("Reporter: ${report.reporterName} (ID: ${report.reporterId.take(6)})", fontSize = 11.sp, color = Color(0xFF94A3B8))
+                                Text("Target ID: ${report.targetId}", fontSize = 11.sp, color = Color(0xFF64748B))
+
+                                if (report.status == "PENDING") {
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Divider(color = Color(0xFF334155))
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                                        horizontalArrangement = Arrangement.SpaceEvenly
+                                    ) {
+                                        Button(
+                                            onClick = { viewModel.resolveReport(report.id, "RESOLVED") },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                                            modifier = Modifier.height(34.dp)
+                                        ) {
+                                            Text("ACTION / అమలు", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                                        }
+
+                                        Button(
+                                            onClick = { viewModel.resolveReport(report.id, "DISMISSED") },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF64748B)),
+                                            modifier = Modifier.height(34.dp)
+                                        ) {
+                                            Text("DISMISS / వద్దు", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                }
                             }
                         }
                     }

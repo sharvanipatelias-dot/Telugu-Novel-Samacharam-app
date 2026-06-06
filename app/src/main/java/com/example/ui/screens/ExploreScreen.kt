@@ -2,6 +2,7 @@ package com.example.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -25,12 +26,37 @@ import com.example.viewmodel.AppViewModel
 import com.example.ui.components.AdMobNativeWidget
 import kotlinx.coroutines.withContext
 
+data class RasiPhalam(
+    val englishName: String,
+    val teluguName: String,
+    val symbol: String,
+    val prediction: String
+)
+
 @Composable
 fun ExploreScreen(viewModel: AppViewModel) {
     var searchQuery by remember { mutableStateOf("") }
     val context = androidx.compose.ui.platform.LocalContext.current
 
     var showWeatherForecastDialog by remember { mutableStateOf(false) }
+    var activeRasiDetail by remember { mutableStateOf<RasiPhalam?>(null) }
+    
+    val rasiPhalaluList = remember {
+        listOf(
+            RasiPhalam("Mesham", "మేషం (Aries)", "♈", "ఈరోజు మీకు అనూహ్య ధనలాభం కలుగుతుంది. చేపట్టిన పనులు విజయవంతంగా పూర్తవుతాయి. ప్రయాణాలు అనుకూలిస్తాయి."),
+            RasiPhalam("Vrishbham", "వృషభం (Taurus)", "♉", "ఆదాయ వనరులు పెరుగుతాయి. ఉద్యోగంలో పైఅధికారుల ప్రశంసలు పొందుతారు. కుటుంబంలో ఆనందకర వాతావరణం ఉంటుంది."),
+            RasiPhalam("Midhunam", "మిథునం (Gemini)", "♊", "నూతన ఉద్యోగ ప్రయత్నాలు ఫలించవచ్చు. వ్యాపార విస్తరణకు ఆలోచనలు అమలు చేస్తారు. ఆరోగ్యం మెరుగుపడుతుంది."),
+            RasiPhalam("Karkatakam", "కర్కాటకం (Cancer)", "♋", "ఖర్చులు పెరగకుండా జాగ్రత్త వహించండి. ముఖ్యమైన వ్యవహారాలలో ఆచితూచి అడుగు వేయడం చాలా అవసరం."),
+            RasiPhalam("Simham", "సింహం (Leo)", "♌", "キーర్తి ప్రతిష్టలు పెరుగుతాయి. సమాజంలో మంచి గౌరవ మర్యాదలు లభిస్తాయి. నూతన పరిచయాలు ఏర్పడతాయి."),
+            RasiPhalam("Kanya", "కన్య (Virgo)", "♍", "విద్యార్థులకు పరీక్షల యందు విజయం లభిస్తుంది. ఊహించని శుభవార్తలు వింటారు. మనస్సు ప్రశాంతంగా ఉంటుంది."),
+            RasiPhalam("Thula", "తుల (Libra)", "♎", "ఆరోగ్య విషయాల్లో శ్రద్ధ వహించండి. శ్రేయోభిలాషుల సలహాలు మేలు చేస్తాయి. అనవసర వాదోపవాదాలకు దూరంగా ఉండండి."),
+            RasiPhalam("Vrishchikam", "వృశ్చికం (Scorpio)", "♏", "బంధుమిత్రులతో స్వల్ప విభేదాలు రావచ్చు. ప్రయాణాల్లో అప్రమత్తత అవసరం. పనుల్లో జాప్యం జరిగే అవకాశం ఉంది."),
+            RasiPhalam("Dhanussu", "ధనుస్సు (Sagittarius)", "♐", "చేపట్టిన పనులు నెమ్మదుగా సాగుతాయి. ఆత్మవిశ్వాసంతో ముందడుగు వేయండి. దైవ దర్శనం మానసిక ప్రశాంతతను ఇస్తుంది."),
+            RasiPhalam("Makaram", "మకరం (Capricorn)", "♑", "ఆర్థిక వ్యవహారాలు చాలా ఆశాజనకంగా ఉంటాయి. కుటుంబ పెద్దల ఆశీస్సులు లభిస్తాయి. రియల్ ఎస్టేట్ లావాదేవీలు అనుకూలిస్తాయి."),
+            RasiPhalam("Kumbham", "కుంభం (Aquarius)", "♒", "సృజనాత్మక రంగాలలో ఉన్నవారికి అద్భుతమైన అవకాశాలు వస్తాయి. సంతాన విషయాల్లో శుభ పరిణామాలు ఉంటాయి."),
+            RasiPhalam("Meenam", "మీనం (Pisces)", "♓", "ఆటంకాలు అధిగమించి అనుకున్న పనులు పూర్తి చేస్తారు. ఆర్థిక పరంగా పురోభివృద్ధి కనిపిస్తుంది. నూతన వస్తువులు కొనుగోలు చేస్తారు.")
+        )
+    }
     var showGoldRateCitiesDialog by remember { mutableStateOf(false) }
     
     var selectedWeatherCity by remember { mutableStateOf("Hyderabad") }
@@ -205,6 +231,46 @@ fun ExploreScreen(viewModel: AppViewModel) {
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            // RASI PHALALU HOROSCOPE SECTION
+            ExploreSectionHeader("నేటి రాశి ఫలాలు (Daily Horoscope)", Icons.Default.BrightnessAuto)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp)
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                rasiPhalaluList.forEach { rasi ->
+                    Card(
+                        modifier = Modifier
+                            .width(100.dp)
+                            .height(110.dp)
+                            .clickable { activeRasiDetail = rasi },
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(10.dp),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(rasi.symbol, fontSize = 28.sp)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = rasi.teluguName.substringBefore(" "),
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
             // Government Schemes Sections
             ExploreSectionHeader("ప్రభుత్వ పథకాలు (Government Schemes)", Icons.Default.CardMembership)
             schemes.forEach { scheme ->
@@ -360,6 +426,35 @@ fun ExploreScreen(viewModel: AppViewModel) {
                 }
             }
         }
+    }
+
+    // Rasi Phalam Interactive Dialog
+    if (activeRasiDetail != null) {
+        val rasi = activeRasiDetail!!
+        AlertDialog(
+            onDismissRequest = { activeRasiDetail = null },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(rasi.symbol, fontSize = 28.sp)
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(rasi.teluguName, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color(0xFFF59E0B))
+                }
+            },
+            text = {
+                Text(
+                    text = rasi.prediction,
+                    fontSize = 15.sp,
+                    color = Color.White,
+                    lineHeight = 22.sp
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { activeRasiDetail = null }) {
+                    Text("ఓకే", color = Color(0xFFF59E0B), fontWeight = FontWeight.Bold)
+                }
+            },
+            containerColor = Color(0xFF1E293B)
+        )
     }
 
     // Interactive Dialogs for live reports

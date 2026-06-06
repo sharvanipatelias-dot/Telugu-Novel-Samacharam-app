@@ -88,6 +88,9 @@ class AppRepository(private val context: Context) {
     private val _users = MutableStateFlow<List<User>>(emptyList())
     val usersList: StateFlow<List<User>> = _users.asStateFlow()
 
+    private val _reports = MutableStateFlow<List<Report>>(emptyList())
+    val reports: StateFlow<List<Report>> = _reports.asStateFlow()
+
     private val _notifications = MutableStateFlow<List<Notification>>(emptyList())
     val notifications: StateFlow<List<Notification>> = _notifications.asStateFlow()
 
@@ -244,6 +247,13 @@ class AppRepository(private val context: Context) {
             if (notificationsFile.exists()) {
                 val listType = Types.newParameterizedType(List::class.java, Notification::class.java)
                 _notifications.value = moshi.adapter<List<Notification>>(listType).fromJson(notificationsFile.readText()) ?: emptyList()
+            }
+
+            // Load reports
+            val reportsFile = File(context.filesDir, "reports.json")
+            if (reportsFile.exists()) {
+                val listType = Types.newParameterizedType(List::class.java, Report::class.java)
+                _reports.value = moshi.adapter<List<Report>>(listType).fromJson(reportsFile.readText()) ?: emptyList()
             }
 
             // Load saved posts
@@ -455,6 +465,7 @@ class AppRepository(private val context: Context) {
     private fun saveLikesLocal() = saveLocal("likes.json", _likes.value, Like::class.java)
     private fun saveNotificationsLocal() = saveLocal("notifications.json", _notifications.value, Notification::class.java)
     private fun saveSavedLocal() = saveLocalSet("saved_posts.json", _savedPostIds.value)
+    private fun saveReportsLocal() = saveLocal("reports.json", _reports.value, Report::class.java)
     
     fun saveAdSettingsLocal(settings: AdSettings) {
         _adSettings.value = settings
@@ -1135,6 +1146,56 @@ class AppRepository(private val context: Context) {
         }
     }
 
+    fun toggleLikeComment(commentId: String) {
+        val user = _currentUser.value ?: return
+        val comment = _comments.value.find { it.id == commentId } ?: return
+        
+        val isLiked = comment.likedByUsers.contains(user.id)
+        val updatedLikedBy = if (isLiked) {
+            comment.likedByUsers.filter { it != user.id }
+        } else {
+            comment.likedByUsers + user.id
+        }
+        val updatedLikesCount = if (isLiked) (comment.likesCount - 1).coerceAtLeast(0) else comment.likesCount + 1
+        
+        val updatedComment = comment.copy(
+            likedByUsers = updatedLikedBy,
+            likesCount = updatedLikesCount
+        )
+        
+        _comments.value = _comments.value.map { if (it.id == commentId) updatedComment else it }
+        saveCommentsLocal()
+        
+        if (FirebaseState.isInitialized) {
+            try {
+                val db = FirebaseFirestore.getInstance()
+                db.collection("comments").document(commentId).set(updatedComment)
+                
+                val parentCollection = when (comment.postType) {
+                    PostType.NEWS -> "news"
+                    PostType.NOVEL -> "novels"
+                    PostType.THOUGHT -> "thoughts"
+                }
+                db.collection(parentCollection).document(comment.postId).collection("comments").document(commentId).set(updatedComment)
+            } catch (e: Exception) {
+                Log.e("FirebaseCommentLike", "Error syncing comment like", e)
+            }
+        }
+        
+        // Notify the author of the comment if they are not the liker
+        if (comment.authorId.isNotEmpty() && comment.authorId != user.id) {
+            addNotification(
+                recipientId = comment.authorId,
+                senderName = user.name,
+                senderPhotoUrl = user.profilePhotoUrl,
+                type = "COMMENT_LIKE",
+                message = "${user.name} mee comment nu like chesaru: \"${comment.text.take(20)}\"",
+                postId = comment.postId,
+                postType = comment.postType.name
+            )
+        }
+    }
+
     fun toggleSavePost(postId: String) {
         val currentSaves = _savedPostIds.value.toMutableSet()
         if (currentSaves.contains(postId)) {
@@ -1249,7 +1310,18 @@ class AppRepository(private val context: Context) {
     fun reportPost(postId: String, postType: PostType, reasoning: String) {
         val user = _currentUser.value ?: return
         Log.i("AppRepository", "Post reported: $postId by ${user.id} -> $reasoning")
-        // Just logs and decreases visibility / sends to review in simulation. 
+        
+        val newReport = Report(
+            targetId = postId,
+            targetType = "POST",
+            reporterId = user.id,
+            reporterName = user.name,
+            reason = reasoning,
+            status = "PENDING"
+        )
+        _reports.value = _reports.value + newReport
+        saveReportsLocal()
+
         // We can flag news/novel/thoughts as PENDING_REVIEW if we want to report:
         when (postType) {
             PostType.NEWS -> {
@@ -1271,11 +1343,62 @@ class AppRepository(private val context: Context) {
                 saveThoughtsLocal()
             }
         }
+
+        if (FirebaseState.isInitialized) {
+            try {
+                FirebaseFirestore.getInstance().collection("reports").document(newReport.id).set(newReport)
+            } catch (e: Exception) {
+                Log.e("FirebaseReport", "Error saving report in Firestore", e)
+            }
+        }
     }
 
     fun reportUser(reportedUserId: String, reason: String) {
         val reporter = _currentUser.value ?: return
         Log.i("AppRepository", "User reported: $reportedUserId by reporter ${reporter.id} for: $reason")
+
+        val newReport = Report(
+            targetId = reportedUserId,
+            targetType = "USER",
+            reporterId = reporter.id,
+            reporterName = reporter.name,
+            reason = reason,
+            status = "PENDING"
+        )
+        _reports.value = _reports.value + newReport
+        saveReportsLocal()
+
+        if (FirebaseState.isInitialized) {
+            try {
+                FirebaseFirestore.getInstance().collection("reports").document(newReport.id).set(newReport)
+            } catch (e: Exception) {
+                Log.e("FirebaseReport", "Error saving user report in Firestore", e)
+            }
+        }
+    }
+
+    fun reportComment(commentId: String, reason: String) {
+        val reporter = _currentUser.value ?: return
+        Log.i("AppRepository", "Comment reported: $commentId by reporter ${reporter.id} for: $reason")
+
+        val newReport = Report(
+            targetId = commentId,
+            targetType = "COMMENT",
+            reporterId = reporter.id,
+            reporterName = reporter.name,
+            reason = reason,
+            status = "PENDING"
+        )
+        _reports.value = _reports.value + newReport
+        saveReportsLocal()
+
+        if (FirebaseState.isInitialized) {
+            try {
+                FirebaseFirestore.getInstance().collection("reports").document(newReport.id).set(newReport)
+            } catch (e: Exception) {
+                Log.e("FirebaseReport", "Error saving comment report in Firestore", e)
+            }
+        }
     }
 
     fun blockUser(targetUserId: String) {
@@ -1396,6 +1519,54 @@ class AppRepository(private val context: Context) {
         }
     }
 
+    fun resolveReport(reportId: String, action: String) {
+        val report = _reports.value.find { it.id == reportId } ?: return
+        val updatedReport = report.copy(status = action) // "RESOLVED" or "DISMISSED"
+        
+        _reports.value = _reports.value.map { if (it.id == reportId) updatedReport else it }
+        saveReportsLocal()
+        
+        // Notify the reporter
+        if (report.reporterId.isNotEmpty()) {
+            val message = when (action) {
+                "RESOLVED" -> "మరియు మీ ఫిర్యాదుపై అడ్మిన్ చర్యలు తీసుకున్నారు. నిబంధనల ప్రకారం పోస్ట్/యూజర్ బ్లాక్ చేయబడింది."
+                "DISMISSED" -> "మీ ఫిర్యాదు పరిశీలించబడింది కానీ ఎటువంటి నిబంధనల ఉల్లంఘన జరగలేదని నిర్ధారించబడింది."
+                else -> "మీ ఫిర్యాదు నవీకరించబడింది."
+            }
+            addNotification(
+                recipientId = report.reporterId,
+                senderName = "మిత్ర మోడరేషన్",
+                senderPhotoUrl = "👑",
+                type = "REPORT_ACTION",
+                message = message,
+                postId = report.targetId,
+                postType = ""
+            )
+        }
+        
+        // Take actions
+        if (action == "RESOLVED") {
+            if (report.targetType == "POST") {
+                setPostStatus(report.targetId, PostType.NEWS, PostStatus.HIDDEN)
+                setPostStatus(report.targetId, PostType.NOVEL, PostStatus.HIDDEN)
+                setPostStatus(report.targetId, PostType.THOUGHT, PostStatus.HIDDEN)
+            } else if (report.targetType == "USER") {
+                blockUser(report.targetId)
+            } else if (report.targetType == "COMMENT") {
+                _comments.value = _comments.value.filter { it.id != report.targetId }
+                saveCommentsLocal()
+            }
+        }
+        
+        if (FirebaseState.isInitialized) {
+            try {
+                FirebaseFirestore.getInstance().collection("reports").document(reportId).set(updatedReport)
+            } catch (e: Exception) {
+                Log.e("FirebaseReportResolve", "Error update", e)
+            }
+        }
+    }
+
     fun dismissNotification(id: String) {
         _notifications.value = _notifications.value.filter { it.id != id }
         saveNotificationsLocal()
@@ -1461,6 +1632,7 @@ class AppRepository(private val context: Context) {
             notificationId = finalId,
             recipientId = recipientId,
             receiverId = recipientId,
+            senderId = currentUserId,
             senderName = senderName,
             senderPhotoUrl = senderPhotoUrl,
             senderPic = senderPhotoUrl,

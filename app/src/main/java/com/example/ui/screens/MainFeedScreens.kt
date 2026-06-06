@@ -40,7 +40,10 @@ import com.example.model.NovelPost
 import com.example.model.PostStatus
 import com.example.model.PostType
 import com.example.model.ThoughtPost
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import com.example.ui.components.AdMobNativeWidget
+import com.example.ui.components.AdMobBannerWidget
 import com.example.viewmodel.AppViewModel
 import com.example.ui.theme.ThemeManager
 
@@ -1172,12 +1175,21 @@ fun NovelReaderOverlay(post: NovelPost, viewModel: AppViewModel, onDismiss: () -
         },
         containerColor = bgColor
     ) { innerPadding ->
-        LazyColumn(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(20.dp)
         ) {
+            AdMobBannerWidget(
+                adSettings = viewModel.adSettings.collectAsState().value,
+                viewModel = viewModel
+            )
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .weight(1f)
+                    .padding(20.dp)
+            ) {
             item {
                 Text(
                     text = post.title,
@@ -1216,6 +1228,62 @@ fun NovelReaderOverlay(post: NovelPost, viewModel: AppViewModel, onDismiss: () -
                                 color = if (isFollowing) Color.White else Color.Black,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+
+                // RELATED NOVEL PARTS (CHAPTERS NAVIGATOR)
+                val allNovels by viewModel.novelPosts.collectAsState()
+                val relatedParts = remember(post, allNovels) {
+                    allNovels.filter {
+                        (it.novelId == post.novelId && post.novelId.isNotEmpty()) ||
+                        it.title.trim().equals(post.title.trim(), ignoreCase = true)
+                    }.filter { it.status == PostStatus.PUBLISHED || it.authorId == post.authorId }
+                     .sortedBy {
+                         val num = try {
+                             it.part.replace("[^0-9]".toRegex(), "").toInt()
+                         } catch(e: Exception) {
+                             999
+                         }
+                         num
+                     }
+                }
+
+                if (relatedParts.size > 1) {
+                    Text(
+                        text = "అన్ని భాగాలు (All Parts/Chapters):",
+                        fontWeight = FontWeight.Bold,
+                        color = textColor,
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 12.dp)
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        relatedParts.forEach { partItem ->
+                            val isCurrent = partItem.id == post.id
+                            AssistChip(
+                                onClick = {
+                                    viewModel.activeReaderNovel = partItem
+                                },
+                                label = {
+                                    Text(
+                                        text = partItem.part.ifEmpty { "భాగం" },
+                                        fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
+                                        fontSize = 11.sp
+                                    )
+                                },
+                                colors = AssistChipDefaults.assistChipColors(
+                                    containerColor = if (isCurrent) Color(0xFFF59E0B) else Color.Transparent,
+                                    labelColor = if (isCurrent) Color.Black else textColor
+                                ),
+                                border = if (isCurrent) null else androidx.compose.foundation.BorderStroke(1.dp, textColor.copy(alpha = 0.3f))
                             )
                         }
                     }
@@ -1268,6 +1336,7 @@ fun NovelReaderOverlay(post: NovelPost, viewModel: AppViewModel, onDismiss: () -
         }
     }
 }
+}
 
 // --- NEWS OVERLAY READER ---
 @OptIn(ExperimentalMaterial3Api::class)
@@ -1291,12 +1360,21 @@ fun NewsReaderOverlay(post: NewsPost, viewModel: AppViewModel, onDismiss: () -> 
         },
         containerColor = Color(0xFF0F172A)
     ) { innerPadding ->
-        LazyColumn(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(horizontal = 16.dp)
         ) {
+            AdMobBannerWidget(
+                adSettings = viewModel.adSettings.collectAsState().value,
+                viewModel = viewModel
+            )
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .weight(1f)
+                    .padding(horizontal = 16.dp)
+            ) {
             item {
                 Spacer(modifier = Modifier.height(12.dp))
                 // Region badge
@@ -1419,6 +1497,7 @@ fun NewsReaderOverlay(post: NewsPost, viewModel: AppViewModel, onDismiss: () -> 
         }
     }
 }
+}
 
 // --- THOUGHT OVERLAY READER ---
 @OptIn(ExperimentalMaterial3Api::class)
@@ -1446,10 +1525,19 @@ fun ThoughtReaderOverlay(post: ThoughtPost, viewModel: AppViewModel, onDismiss: 
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(20.dp),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            AdMobBannerWidget(
+                adSettings = viewModel.adSettings.collectAsState().value,
+                viewModel = viewModel
+            )
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .weight(1f)
+                    .padding(20.dp),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
@@ -1562,6 +1650,7 @@ fun ThoughtReaderOverlay(post: ThoughtPost, viewModel: AppViewModel, onDismiss: 
         }
     }
 }
+}
 
 // --- COMMENTS SYSTEM DRAWER/SHEET ---
 @OptIn(ExperimentalMaterial3Api::class)
@@ -1617,29 +1706,62 @@ fun CommentsSheet(viewModel: AppViewModel, onDismiss: () -> Unit) {
                         }
                     } else {
                         itemsIndexed(comments) { _, comment ->
-                            Row(modifier = Modifier.padding(vertical = 12.dp)) {
-                                AsyncImage(
-                                    model = comment.authorPhotoUrl,
-                                    contentDescription = "Author Avatar",
-                                    modifier = Modifier
-                                        .size(32.dp)
-                                        .clip(CircleShape),
-                                    contentScale = ContentScale.Crop
-                                )
-                                Spacer(modifier = Modifier.width(10.dp))
-                                Column {
-                                    Text(
-                                        text = comment.authorName,
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color(0xFFF59E0B)
+                            val currentUserId = viewModel.currentUser.collectAsState().value?.id
+                            val isLiked = currentUserId != null && comment.likedByUsers.contains(currentUserId)
+                            
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(modifier = Modifier.weight(1f)) {
+                                    AsyncImage(
+                                        model = comment.authorPhotoUrl,
+                                        contentDescription = "Author Avatar",
+                                        modifier = Modifier
+                                            .size(32.dp)
+                                            .clip(CircleShape),
+                                        contentScale = ContentScale.Crop
                                     )
-                                    Text(
-                                        text = comment.text,
-                                        fontSize = 13.sp,
-                                        color = Color.White,
-                                        modifier = Modifier.padding(top = 2.dp)
-                                    )
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Column {
+                                        Text(
+                                            text = comment.authorName,
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color(0xFFF59E0B)
+                                        )
+                                        Text(
+                                            text = comment.text,
+                                            fontSize = 13.sp,
+                                            color = Color.White,
+                                            modifier = Modifier.padding(top = 2.dp)
+                                        )
+                                    }
+                                }
+                                
+                                // Comment Like Button
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    IconButton(
+                                        onClick = { viewModel.toggleLikeComment(comment.id) },
+                                        modifier = Modifier.size(24.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = if (isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                                            contentDescription = "Like Comment",
+                                            tint = if (isLiked) Color.Red else Color.LightGray,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                    if (comment.likesCount > 0) {
+                                        Text(
+                                            text = "${comment.likesCount}",
+                                            color = Color.LightGray,
+                                            fontSize = 10.sp
+                                        )
+                                    }
                                 }
                             }
                             Divider(color = Color(0xFF1E293B))
@@ -1648,45 +1770,95 @@ fun CommentsSheet(viewModel: AppViewModel, onDismiss: () -> Unit) {
                 }
             }
 
-            // Input field pinned to bottom of the Box
-            Row(
+            // Input field pinned to bottom of the Box with Autocomplete mentions suggestion bar
+            val allUsers by viewModel.allUsers.collectAsState()
+            val lastWord = inputCommentText.substringAfterLast(' ', "")
+            val isMentionPath = lastWord.startsWith("@") && lastWord.length > 1
+            val mentionQuery = if (isMentionPath) lastWord.drop(1).lowercase() else ""
+            val suggestedUsers = remember(mentionQuery, allUsers) {
+                if (mentionQuery.isEmpty()) emptyList()
+                else {
+                    allUsers.filter {
+                        it.name.lowercase().contains(mentionQuery) ||
+                        it.id.lowercase().contains(mentionQuery)
+                    }.take(5)
+                }
+            }
+
+            Column(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
-                    .background(Color(0xFF1E293B))
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
-                    .navigationBarsPadding(),
-                verticalAlignment = Alignment.CenterVertically
             ) {
-                OutlinedTextField(
-                    value = inputCommentText,
-                    onValueChange = { inputCommentText = it },
-                    placeholder = { Text("ఇక్కడ కామెంట్ రాయండి...", color = Color(0xFF94A3B8)) },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        focusedBorderColor = Color(0xFFF59E0B),
-                        unfocusedBorderColor = Color(0xFF475569)
-                    ),
-                    modifier = Modifier
-                        .weight(1f)
-                        .testTag("comment_input_field"),
-                    maxLines = 3
-                )
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                IconButton(
-                    onClick = {
-                        if (inputCommentText.trim().isNotEmpty()) {
-                            viewModel.addComment(inputCommentText)
-                            inputCommentText = ""
+                if (isMentionPath && suggestedUsers.isNotEmpty()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xFF0F172A))
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("తగిలించు (Mention):", fontSize = 11.sp, color = Color(0xFFF59E0B), fontWeight = FontWeight.Bold)
+                        suggestedUsers.forEach { suggestUser ->
+                            AssistChip(
+                                onClick = {
+                                    val prefix = inputCommentText.substringBeforeLast("@")
+                                    inputCommentText = "${prefix}@${suggestUser.name} "
+                                },
+                                label = {
+                                    Text("@${suggestUser.name}", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                },
+                                colors = AssistChipDefaults.assistChipColors(
+                                    containerColor = Color(0xFF334155),
+                                    labelColor = Color.White
+                                ),
+                                border = null
+                            )
                         }
-                    },
-                    colors = IconButtonDefaults.iconButtonColors(containerColor = Color(0xFFF59E0B)),
-                    modifier = Modifier.testTag("comment_send_button")
+                    }
+                    Divider(color = Color(0xFF334155))
+                }
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color(0xFF1E293B))
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                        .navigationBarsPadding(),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Default.Send, contentDescription = "Send", tint = Color.Black)
+                    OutlinedTextField(
+                        value = inputCommentText,
+                        onValueChange = { inputCommentText = it },
+                        placeholder = { Text("ఇక్కడ కామెంట్ రాయండి...", color = Color(0xFF94A3B8)) },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedBorderColor = Color(0xFFF59E0B),
+                            unfocusedBorderColor = Color(0xFF475569)
+                        ),
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("comment_input_field"),
+                        maxLines = 3
+                    )
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    IconButton(
+                        onClick = {
+                            if (inputCommentText.trim().isNotEmpty()) {
+                                viewModel.addComment(inputCommentText)
+                                inputCommentText = ""
+                            }
+                        },
+                        colors = IconButtonDefaults.iconButtonColors(containerColor = Color(0xFFF59E0B)),
+                        modifier = Modifier.testTag("comment_send_button")
+                    ) {
+                        Icon(Icons.Default.Send, contentDescription = "Send", tint = Color.Black)
+                    }
                 }
             }
         }

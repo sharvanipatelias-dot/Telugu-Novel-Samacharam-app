@@ -156,3 +156,81 @@ fun AdMobNativeWidget(adSettings: AdSettings, viewModel: AppViewModel? = null) {
         }
     }
 }
+
+@Composable
+fun AdMobBannerWidget(adSettings: AdSettings, viewModel: AppViewModel? = null) {
+    if (!adSettings.adsEnabled) return
+
+    val context = LocalContext.current
+    val resolvedBannerId = if (adSettings.useTestAds || adSettings.bannerAdId.trim().isEmpty()) {
+        "ca-app-pub-3940256099942544/9214589741"
+    } else {
+        adSettings.bannerAdId.trim()
+    }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp, horizontal = 12.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+        shape = RoundedCornerShape(8.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF334155))
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(Color(0xFFF59E0B))
+                        .padding(horizontal = 4.dp, vertical = 2.dp)
+                ) {
+                    Text(
+                        text = "AD BANNER",
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Black
+                    )
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Column {
+                    Text(
+                        text = "స్పాన్సర్డ్ యాడ్: అత్యుత్తమ ఆఫర్లు!",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = "ID: $resolvedBannerId",
+                        fontSize = 8.sp,
+                        color = Color(0xFF64748B)
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Button(
+                onClick = {
+                    if (viewModel != null) {
+                        viewModel.earnCoins(10)
+                        Toast.makeText(context, "Sponsor Reward: +10 Coins Added! / +10 నాణేలు లభించాయి!", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(context, "Banner Ad Visited!", Toast.LENGTH_SHORT).show()
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                shape = RoundedCornerShape(4.dp),
+                modifier = Modifier.height(28.dp)
+            ) {
+                Text("OPEN", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            }
+        }
+    }
+}

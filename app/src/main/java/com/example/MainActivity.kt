@@ -228,6 +228,7 @@ fun HomeScreen(viewModel: AppViewModel) {
 
     ModalNavigationDrawer(
         drawerState = drawerState,
+        gesturesEnabled = false,
         drawerContent = {
             ModalDrawerSheet(
                 drawerContainerColor = Color(0xFF1E293B),

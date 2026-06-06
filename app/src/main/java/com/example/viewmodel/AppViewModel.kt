@@ -95,6 +95,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     val notifications = repository.notifications
     val adSettings = repository.adSettings
     val savedPostIds = repository.savedPostIds
+    val reports = repository.reports
 
     // User-specific personal streams to fix Profile filtering strictly from Firestore
     val currentUserNews = MutableStateFlow<List<NewsPost>>(emptyList())
@@ -513,6 +514,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         repository.reportUser(reportedUserId, reason)
     }
 
+    fun reportComment(commentId: String, reason: String) {
+        repository.reportComment(commentId, reason)
+    }
+
     fun blockUser(targetUserId: String) {
         repository.blockUser(targetUserId)
     }
@@ -521,6 +526,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         val postId = activeCommentsPostId ?: return
         if (text.trim().isEmpty()) return
         repository.addComment(postId, activeCommentsPostType, text.trim())
+    }
+
+    fun toggleLikeComment(commentId: String) {
+        repository.toggleLikeComment(commentId)
     }
 
     fun getCommentsForPost(postId: String): List<Comment> {
@@ -554,6 +563,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     fun adminDeletePost(postId: String, postType: PostType) {
         repository.deletePost(postId, postType)
+    }
+
+    fun resolveReport(reportId: String, action: String) {
+        repository.resolveReport(reportId, action)
     }
 
     fun saveAdManagementSettings(

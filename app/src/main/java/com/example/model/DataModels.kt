@@ -100,7 +100,9 @@ data class Comment(
     val authorName: String = "",
     val authorPhotoUrl: String = "",
     val text: String = "",
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
+    val likedByUsers: List<String> = emptyList(),
+    val likesCount: Int = 0
 )
 
 data class Like(
@@ -115,6 +117,7 @@ data class Notification(
     val notificationId: String = "",
     val recipientId: String = "",
     val receiverId: String = "",
+    val senderId: String = "",
     val senderName: String = "",
     val senderPhotoUrl: String = "",
     val senderPic: String = "",
@@ -129,19 +132,23 @@ data class Notification(
 data class Report(
     val id: String = UUID.randomUUID().toString(),
     val reporterId: String = "",
+    val reporterName: String = "",
+    val targetId: String = "",
+    val targetType: String = "", // "POST", "COMMENT", "USER"
     val reportedUserId: String = "",
     val postId: String = "",
     val postType: PostType = PostType.NEWS,
     val reason: String = "",
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
+    val status: String = "PENDING" // "PENDING", "RESOLVED", "DISMISSED"
 )
 
 data class AdSettings(
     val useTestAds: Boolean = true,
     val showNativeAds: Boolean = true,
-    val newsAdFrequency: Int = 3, // After every 3 posts
-    val novelAdFrequency: Int = 3,
-    val thoughtsAdFrequency: Int = 3,
+    val newsAdFrequency: Int = 2, // After every 2 posts
+    val novelAdFrequency: Int = 2,
+    val thoughtsAdFrequency: Int = 2,
     val adsEnabled: Boolean = true,
     val nativeAdId: String = "ca-app-pub-3940256099942544/2247696110",
     val bannerAdId: String = "ca-app-pub-3940256099942544/9214589741"
