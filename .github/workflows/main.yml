@@ -22,13 +22,27 @@ jobs:
       uses: gradle/actions/setup-gradle@v3
 
     - name: Grant Execute Permission for Gradlew
-      run: chmod +x ./gradlew
+      run: |
+        if [ -f "./gradlew" ]; then
+          chmod +x ./gradlew
+        else
+          cd *app/ || cd */
+          chmod +x ./gradlew
+        fi
 
     - name: Build Android App Bundle (AAB)
-      run: ./gradlew bundleRelease
+      run: |
+        if [ -f "./gradlew" ]; then
+          ./gradlew bundleRelease
+        else
+          cd *app/ || cd */
+          ./gradlew bundleRelease
+        fi
 
     - name: Upload AAB Artifact
       uses: actions/upload-artifact@v4
       with:
         name: app-release-aab
-        path: app/build/outputs/bundle/release/*.aab
+        path: |
+          app/build/outputs/bundle/release/*.aab
+          */app/build/outputs/bundle/release/*.aab
